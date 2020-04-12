@@ -3,6 +3,110 @@
 
 -------------------------------------------------------------------------------------------------------------
 
+## 5.3.0 (2020-04-07)
+
+### 新特性
+* 【extra  】     JschUtil增加execByShell方法(issue#I1CYES@Gitee)
+* 【core   】     StrUtil增加subBetweenAll方法，Console增加where和lineNumber方法(issue#812@Github)
+* 【core   】     TableMap增加getKeys和getValues方法
+* 【json   】     JSONObject和JSONArray增加set方法，标识put弃用
+* 【http   】     增加SimpleHttpServer
+* 【script 】     增加createXXXScript，区别单例
+* 【core   】     修改FileUtil.writeFileToStream等方法返回值为long
+* 【core   】     CollUtil.split增加空集合判定（issue#814@Github）
+* 【core   】     NetUtil增加parseCookies方法
+* 【core   】     CollUtil增加toMap方法
+* 【core   】     CollUtil和IterUtil废弃一些方法
+* 【core   】     添加ValidateObjectInputStream避免对象反序列化漏洞风险
+* 【core   】     添加BiMap
+* 【all    】     cn.hutool.extra.servlet.multipart包迁移到cn.hutool.core.net下
+* 【core   】     XmlUtil.mapToXml方法支持集合解析（issue#820@Github）
+* 【json   】     解析Object中对是否为bean单独判断，而不是直接解析
+* 【core   】     SimHash锁改为StampedLock
+* 【core   】     Singleton改为SimpleCache实现
+* 【core   】     增加CalendarUtil，DateUtil相关方法全部迁移到此
+
+### Bug修复
+* 【extra  】     修复SpringUtil使用devtools重启报错问题
+* 【http   】     修复HttpUtil.encodeParams针对无参数URL问题（issue#817@Github）
+* 【extra  】     修复模板中无效引用的问题
+* 【extra  】     修复读取JSON文本配置未应用到子对象的问题（issue#818@Github）
+* 【extra  】     修复XmlUtil.createXml中namespace反向问题
+* 【core   】     修复WatchMonitor默认无event问题
+
+-------------------------------------------------------------------------------------------------------------
+
+## 5.2.5 (2020-03-26)
+
+### 新特性
+* 【core   】     增加逻辑，对于原始类型注入，使用默认值（issue#797@Github）
+* 【core   】     增加CityHash算法
+* 【core   】     PageUtil支持setFirstPageNo自定义第一页的页码（issue#I1CGNZ@Gitee）
+* 【http   】     UserAgentUtil增加Chromium内核的Edge浏览器支持（issue#800@Github）
+* 【cache  】     修改FIFOCache中linkedHashMap的初始容量策略（pr#801@Github）
+* 【core   】     修改XmlUtil中setNamespaceAware默认为true
+* 【core   】     TreeNode增加extra
+* 【core   】     CollUtil.newHashSet重载歧义，更换为set方法
+* 【core   】     增加ListUtil，增加Hash32、Hash64、Hash128接口
+* 【crypto 】     BCUtil增加readPemPrivateKey和readPemPublicKey方法
+* 【cache  】     替换读写锁为StampedLock，增加LockUtil
+
+### Bug修复
+* 【core   】     修复NumberWordFormatter拼写错误（issue#799@Github）
+* 【poi    】     修复xls文件下拉列表无效问题（issue#I1C79P@Gitee）
+* 【poi    】     修复使用Cglib代理问题（issue#I1C79P@Gitee）
+* 【core   】     修复DateUtil.weekCount跨年计算问题
+
+-------------------------------------------------------------------------------------------------------------
+## 5.2.4
+
+### 新特性
+* 【setting】     Setting中增加addSetting和autoLoad重载（pr#104@Gitee）
+* 【core   】     增加copyProperties，根据Class创建对象并进行属性拷贝（pr#105@Gitee）
+* 【core   】     添加获取class当前文件夹名称方法（pr#106@Gitee）
+* 【core   】     BooleanUtil中重载歧义修正，修改了包装参数的方法名（issue#I1BSK8@Gitee）
+* 【core   】     XmlUtil增加xmlToBean和beanToXml方法
+* 【db     】     设置全局忽略大小写DbUtil.setCaseInsensitiveGlobal(true)（issue#784@Github）
+* 【core   】     增加CallerUtil.getCallerMethodName方法
+* 【core   】     Tree增加getParent方法，可以获取父节点，抽象Node接口
+* 【core   】     增加社会信用代码工具CreditCodeUtil（pr#112@Gitee）
+* 【core   】     ChineseDate增加构造重载，增加toStringNormal（issue#792@Github）
+* 【core   】     BeanUtil.toBean增加重载（issue#797@Github）
+
+### Bug修复
+* 【core   】     修复TypeUtil无法获取泛型接口的泛型参数问题（issue#I1BRFI@Gitee）
+* 【core   】     修复MySQL中0000报错问题
+* 【core   】     修复BeanPath从Map取值为空的问题（issue#790@Github）
+* 【poi    】     修复添加图片尺寸的单位问题（issue#I1C2ER@Gitee）
+* 【setting】     修复getStr中逻辑问题（pr#113@Gitee）
+* 【json   】     修复JSONUtil.toXml汉字被编码的问题（pr#795@Gitee）
+* 【poi    】     修复导出的Map列表中每个map长度不同导致的对应不一致的问题（issue#793@Gitee）
+
+-------------------------------------------------------------------------------------------------------------
+## 5.2.3
+
+### 新特性
+* 【http   】     UserAgentUtil增加识别ios和android等（issue#781@Github）
+* 【core   】     支持新领车牌（issue#I1BJHE@Gitee）
+
+### Bug修复
+* 【core   】     修复PageUtil第一页语义不明确的问题（issue#782@Github）
+* 【extra  】     修复TemplateFactory引入包导致的问题
+* 【core   】     修复ServiceLoaderUtil.loadFirstAvailable问题
+
+-------------------------------------------------------------------------------------------------------------
+## 5.2.2
+
+### 新特性
+
+### Bug修复
+* 【http   】     修复body方法添加多余头的问题（issue#769@Github）
+* 【bloomFilter 】修复默认为int类型,左移超过32位后,高位丢失问题（pr#770@Github）
+* 【core   】     修复beginOfWeek和endOfWeek一周开始计算错误问题（issue#I1BDPW@Gitee）
+* 【db     】     修复Db.query使用命名方式查询产生的歧义（issue#776@Github）
+
+-------------------------------------------------------------------------------------------------------------
+
 ## 5.2.1
 
 ### 新特性
@@ -97,7 +201,6 @@
 
 ### Bug修复
 * 【core 】     修复isExpired的bug（issue#733@Gtihub）
-* 【core 】     修复ChineseDate的bug（pr#94@Gitee）
 
 -------------------------------------------------------------------------------------------------------------
 

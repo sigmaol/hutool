@@ -1,5 +1,6 @@
 package cn.hutool.core.util;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.exceptions.UtilException;
 import cn.hutool.core.io.FileUtil;
@@ -16,7 +17,11 @@ import javax.xml.namespace.QName;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.*;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Result;
+import javax.xml.transform.Source;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.xpath.XPath;
@@ -25,12 +30,20 @@ import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import java.beans.XMLDecoder;
 import java.beans.XMLEncoder;
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * XML工具类<br>
@@ -473,6 +486,8 @@ public class XmlUtil {
 		} else {
 			factory = DocumentBuilderFactory.newInstance();
 		}
+		// 默认打开NamespaceAware，getElementsByTagNameNS可以使用命名空间
+		factory.setNamespaceAware(true);
 		return disableXXE(factory);
 	}
 
@@ -498,7 +513,7 @@ public class XmlUtil {
 	 */
 	public static Document createXml(String rootElementName, String namespace) {
 		final Document doc = createXml();
-		doc.appendChild(null == namespace ? doc.createElement(rootElementName) : doc.createElementNS(rootElementName, namespace));
+		doc.appendChild(null == namespace ? doc.createElement(rootElementName) : doc.createElementNS(namespace, rootElementName));
 		return doc;
 	}
 
@@ -514,6 +529,16 @@ public class XmlUtil {
 	 */
 	public static Element getRootElement(Document doc) {
 		return (null == doc) ? null : doc.getDocumentElement();
+	}
+
+	/**
+	 * 获取节点所在的Document
+	 * @param node 节点
+	 * @return {@link Document}
+	 * @since 5.3.0
+	 */
+	public static Document getOwnerDocument(Node node){
+		return (node instanceof Document) ? (Document) node : node.getOwnerDocument();
 	}
 
 	/**
@@ -757,6 +782,19 @@ public class XmlUtil {
 	}
 
 	/**
+	 * XML转Java Bean
+	 *
+	 * @param <T> bean类型
+	 * @param node XML节点
+	 * @param bean bean类
+	 * @return bean
+	 * @since 5.2.4
+	 */
+	public static <T> T xmlToBean(Node node, Class<T> bean){
+		return BeanUtil.toBean(xmlToMap(node), bean);
+	}
+
+	/**
 	 * XML格式字符串转换为Map
 	 *
 	 * @param node XML节点
@@ -940,7 +978,6 @@ public class XmlUtil {
 	 * @since 4.0.9
 	 */
 	public static Document mapToXml(Map<?, ?> data, String rootName) {
-
 		return mapToXml(data, rootName, null);
 	}
 
@@ -957,8 +994,23 @@ public class XmlUtil {
 		final Document doc = createXml();
 		final Element root = appendChild(doc, rootName, namespace);
 
-		mapToXml(doc, root, data);
+		appendMap(doc, root, data);
 		return doc;
+	}
+
+	/**
+	 * 将Bean转换为XML
+	 *
+	 * @param bean      Bean对象
+	 * @param namespace 命名空间，可以为null
+	 * @return XML
+	 * @since 5.2.4
+	 */
+	public static Document beanToXml(Object bean, String namespace) {
+		if(null == bean){
+			return null;
+		}
+		return mapToXml(BeanUtil.beanToMap(bean), bean.getClass().getSimpleName(), namespace);
 	}
 
 	/**
@@ -994,57 +1046,104 @@ public class XmlUtil {
 	 * @since 5.0.4
 	 */
 	public static Element appendChild(Node node, String tagName, String namespace) {
-		final Document doc = (node instanceof Document) ? (Document) node : node.getOwnerDocument();
+		final Document doc = getOwnerDocument(node);
 		final Element child = (null == namespace) ? doc.createElement(tagName) : doc.createElementNS(namespace, tagName);
 		node.appendChild(child);
 		return child;
 	}
 
+	/**
+	 * 创建文本子节点
+	 *
+	 * @param node 节点
+	 * @param text 文本
+	 * @return 子节点
+	 * @since 5.3.0
+	 */
+	public static Node appendText(Node node, CharSequence text){
+		return appendText(getOwnerDocument(node), node, text);
+	}
 	// ---------------------------------------------------------------------------------------- Private method start
 
 	/**
-	 * 将Map转换为XML格式的字符串
+	 * 追加数据子节点，可以是Map、集合、文本
+	 *
+	 * @param doc {@link Document}
+	 * @param node 节点
+	 * @param data 数据
+	 */
+	@SuppressWarnings("rawtypes")
+	private static void append(Document doc, Node node, Object data){
+		if (data instanceof Map) {
+			// 如果值依旧为map，递归继续
+			appendMap(doc, node, (Map) data);
+		} else if (data instanceof Iterator) {
+			// 如果值依旧为map，递归继续
+			appendIterator(doc, node, (Iterator) data);
+		}else if (data instanceof Iterable) {
+			// 如果值依旧为map，递归继续
+			appendIterator(doc, node, ((Iterable)data).iterator());
+		} else {
+			appendText(doc, node, data.toString());
+		}
+	}
+
+	/**
+	 * 追加Map数据子节点
 	 *
 	 * @param doc     {@link Document}
-	 * @param element 节点
+	 * @param node 当前节点
 	 * @param data    Map类型数据
 	 * @since 4.0.8
 	 */
-	@SuppressWarnings("rawtypes")
-	private static void mapToXml(Document doc, Element element, Map<?, ?> data) {
-		Element filedEle;
-		Object key;
-		for (Entry<?, ?> entry : data.entrySet()) {
-			key = entry.getKey();
-			if (null == key) {
-				continue;
-			}
-			// key作为标签名，无值的节点作为空节点创建
-			filedEle = doc.createElement(key.toString());
-			element.appendChild(filedEle);
-			// value作为标签内的值。
-			final Object value = entry.getValue();
-			if (null == value) {
-				continue;
-			}
-			if (value instanceof List) {
-				for (Object listEle : (List) value) {
-					if (listEle instanceof Map) {
-						// 如果值依旧为map，递归继续
-						mapToXml(doc, filedEle, (Map<?, ?>) listEle);
-					} else {
-						// 创建文本节点
-						filedEle.appendChild(doc.createTextNode(value.toString()));
-					}
+	@SuppressWarnings({"rawtypes", "unchecked"})
+	private static void appendMap(Document doc, Node node, Map data) {
+		data.forEach((key, value)->{
+			if(null != key){
+				final Element child = appendChild(node, key.toString());
+				if(null != value){
+					append(doc, child, value);
 				}
-			} else if (value instanceof Map) {
-				// 如果值依旧为map，递归继续
-				mapToXml(doc, filedEle, (Map<?, ?>) value);
-			} else {
-				filedEle.appendChild(doc.createTextNode(value.toString()));
+			}
+		});
+	}
 
+	/**
+	 * 追加集合节点
+	 *
+	 * @param doc {@link Document}
+	 * @param node 节点
+	 * @param data 数据
+	 */
+	@SuppressWarnings("rawtypes")
+	private static void appendIterator(Document doc, Node node, Iterator data){
+		final Node parentNode = node.getParentNode();
+		boolean isFirst = true;
+		Object eleData;
+		while(data.hasNext()){
+			eleData = data.next();
+			if(isFirst){
+				append(doc, node, eleData);
+				isFirst = false;
+			} else{
+				final Node cloneNode = node.cloneNode(false);
+				parentNode.appendChild(cloneNode);
+				append(doc, cloneNode, eleData);
 			}
 		}
+	}
+
+	/**
+	 * 追加文本节点
+	 *
+	 * @param doc {@link Document}
+	 * @param node 节点
+	 * @param text 文本内容
+	 * @return 增加的子节点，即Text节点
+	 * @since 5.3.0
+	 */
+	private static Node appendText(Document doc, Node node, CharSequence text){
+		return node.appendChild(doc.createTextNode(StrUtil.str(text)));
 	}
 
 	/**

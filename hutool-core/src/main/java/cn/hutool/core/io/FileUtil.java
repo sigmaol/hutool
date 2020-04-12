@@ -59,7 +59,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 import java.util.zip.CRC32;
@@ -83,7 +82,7 @@ public class FileUtil {
 	/**
 	 * Windows下文件名中的无效字符
 	 */
-	private static Pattern FILE_NAME_INVALID_PATTERN_WIN = Pattern.compile("[\\\\/:*?\"<>|]");
+	private static final Pattern FILE_NAME_INVALID_PATTERN_WIN = Pattern.compile("[\\\\/:*?\"<>|]");
 
 	/**
 	 * Class文件扩展名
@@ -273,7 +272,7 @@ public class FileUtil {
 	 * @param start    起始路径，必须为目录
 	 * @param maxDepth 最大遍历深度，-1表示不限制深度
 	 * @param visitor  {@link FileVisitor} 接口，用于自定义在访问文件时，访问目录前后等节点做的操作
-	 * @see Files#walkFileTree(Path, Set, int, FileVisitor)
+	 * @see Files#walkFileTree(Path, java.util.Set, int, FileVisitor)
 	 * @since 4.6.3
 	 */
 	public static void walkFiles(Path start, int maxDepth, FileVisitor<? super Path> visitor) {
@@ -3254,10 +3253,10 @@ public class FileUtil {
 	 *
 	 * @param file 文件
 	 * @param out  流
-	 * @return 目标文件
+	 * @return 写出的流byte数
 	 * @throws IORuntimeException IO异常
 	 */
-	public static File writeToStream(File file, OutputStream out) throws IORuntimeException {
+	public static long writeToStream(File file, OutputStream out) throws IORuntimeException {
 		return FileReader.create(file).writeToStream(out);
 	}
 
@@ -3266,10 +3265,11 @@ public class FileUtil {
 	 *
 	 * @param fullFilePath 文件绝对路径
 	 * @param out          输出流
+	 * @return 写出的流byte数
 	 * @throws IORuntimeException IO异常
 	 */
-	public static void writeToStream(String fullFilePath, OutputStream out) throws IORuntimeException {
-		writeToStream(touch(fullFilePath), out);
+	public static long writeToStream(String fullFilePath, OutputStream out) throws IORuntimeException {
+		return writeToStream(touch(fullFilePath), out);
 	}
 
 	/**

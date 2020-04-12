@@ -7,6 +7,7 @@ import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.map.CaseInsensitiveLinkedMap;
 import cn.hutool.core.map.CaseInsensitiveMap;
+import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.CharUtil;
 import cn.hutool.core.util.ObjectUtil;
@@ -22,7 +23,6 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -46,7 +46,7 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 	/** JSON的KV持有Map */
 	private final Map<String, Object> rawHashMap;
 	/** 配置项 */
-	private JSONConfig config;
+	private final JSONConfig config;
 
 	// -------------------------------------------------------------------------------------------------------------------- Constructor start
 	/**
@@ -103,14 +103,17 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 	 * 构造
 	 * 
 	 * @param capacity 初始大小
-	 * @param config JSON配置项
+	 * @param config JSON配置项，null表示默认配置
 	 * @since 4.1.19
 	 */
 	public JSONObject(int capacity, JSONConfig config) {
+		if(null == config){
+			config = JSONConfig.create();
+		}
 		if (config.isIgnoreCase()) {
 			this.rawHashMap = config.isOrder() ? new CaseInsensitiveLinkedMap<>(capacity) : new CaseInsensitiveMap<>(capacity);
 		} else {
-			this.rawHashMap = config.isOrder() ? new LinkedHashMap<>(capacity) : new HashMap<>(capacity);
+			this.rawHashMap = MapUtil.newHashMap(config.isOrder());
 		}
 		this.config = config;
 	}
@@ -241,12 +244,7 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 
 	// -------------------------------------------------------------------------------------------------------------------- Constructor end
 
-	/**
-	 * 获取JSON配置
-	 * 
-	 * @return {@link JSONConfig}
-	 * @since 4.3.1
-	 */
+	@Override
 	public JSONConfig getConfig() {
 		return this.config;
 	}
@@ -279,7 +277,7 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 		for (String name : names) {
 			value = this.get(name);
 			if (null != value) {
-				ja.put(value);
+				ja.set(value);
 			}
 		}
 		return ja;
@@ -332,14 +330,16 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 	}
 
 	/**
-	 * PUT 键值对到JSONObject中，如果值为<code>null</code>，将此键移除
+	 * PUT 键值对到JSONObject中，在忽略null模式下，如果值为<code>null</code>，将此键移除
 	 *
 	 * @param key 键
 	 * @param value 值对象. 可以是以下类型: Boolean, Double, Integer, JSONArray, JSONObject, Long, String, or the JSONNull.NULL.
 	 * @return this.
 	 * @throws JSONException 值是无穷数字抛出此异常
+	 * @deprecated 此方法存在歧义，原Map接口返回的是之前的值，重写后返回this了，未来版本此方法会修改，请使用{@link #set(String, Object)}
 	 */
 	@Override
+	@Deprecated
 	public JSONObject put(String key, Object value) throws JSONException {
 		if (null == key) {
 			return this;
@@ -357,6 +357,19 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 	}
 
 	/**
+	 * 设置键值对到JSONObject中，在忽略null模式下，如果值为<code>null</code>，将此键移除
+	 *
+	 * @param key 键
+	 * @param value 值对象. 可以是以下类型: Boolean, Double, Integer, JSONArray, JSONObject, Long, String, or the JSONNull.NULL.
+	 * @return this.
+	 * @throws JSONException 值是无穷数字抛出此异常
+	 */
+	public JSONObject set(String key, Object value) throws JSONException {
+		put(key, value);
+		return this;
+	}
+
+	/**
 	 * 一次性Put 键值对，如果key已经存在抛出异常，如果键值中有null值，忽略
 	 *
 	 * @param key 键
@@ -365,7 +378,7 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 	 * @throws JSONException 值是无穷数字、键重复抛出异常
 	 */
 	public JSONObject putOnce(String key, Object value) throws JSONException {
-		if (key != null && value != null) {
+		if (key != null) {
 			if (rawHashMap.containsKey(key)) {
 				throw new JSONException("Duplicate key \"{}\"", key);
 			}
@@ -409,11 +422,11 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 		InternalJSONUtil.testValidity(value);
 		Object object = this.getObj(key);
 		if (object == null) {
-			this.put(key, value instanceof JSONArray ? new JSONArray().put(value) : value);
+			this.put(key, value instanceof JSONArray ? new JSONArray().set(value) : value);
 		} else if (object instanceof JSONArray) {
-			((JSONArray) object).put(value);
+			((JSONArray) object).set(value);
 		} else {
-			this.put(key, new JSONArray().put(object).put(value));
+			this.set(key, new JSONArray().set(object).set(value));
 		}
 		return this;
 	}
@@ -430,9 +443,9 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 		InternalJSONUtil.testValidity(value);
 		Object object = this.getObj(key);
 		if (object == null) {
-			this.put(key, new JSONArray().put(value));
+			this.set(key, new JSONArray().set(value));
 		} else if (object instanceof JSONArray) {
-			this.put(key, ((JSONArray) object).put(value));
+			this.set(key, ((JSONArray) object).set(value));
 		} else {
 			throw new JSONException("JSONObject [" + key + "] is not a JSONArray.");
 		}
@@ -478,19 +491,16 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 		rawHashMap.clear();
 	}
 
-	@SuppressWarnings("NullableProblems")
 	@Override
 	public Set<String> keySet() {
 		return this.rawHashMap.keySet();
 	}
 
-	@SuppressWarnings("NullableProblems")
 	@Override
 	public Collection<Object> values() {
 		return rawHashMap.values();
 	}
 
-	@SuppressWarnings("NullableProblems")
 	@Override
 	public Set<Entry<String, Object>> entrySet() {
 		return rawHashMap.entrySet();
@@ -646,7 +656,7 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 	 * 
 	 * @param source JavaBean或者Map对象或者String
 	 */
-	@SuppressWarnings({"rawtypes", "unchecked", "StatementWithEmptyBody"})
+	@SuppressWarnings({"rawtypes", "unchecked"})
 	private void init(Object source) {
 		if (null == source) {
 			return;
@@ -667,9 +677,7 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 		} else if (source instanceof JSONTokener) {
 			// JSONTokener
 			init((JSONTokener) source);
-		} else if (source instanceof Number) {
-			// ignore Number
-		} else {
+		} else if(BeanUtil.isReadableBean(source.getClass())){
 			// 普通Bean
 			this.populateMap(source);
 		}
@@ -681,7 +689,7 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 	 * @param source JSON字符串
 	 */
 	private void init(CharSequence source) {
-		init(new JSONTokener(StrUtil.trim(source)));
+		init(new JSONTokener(StrUtil.trim(source), this.config));
 	}
 
 	/**
@@ -696,7 +704,7 @@ public class JSONObject implements JSON, JSONGetter<String>, Map<String, Object>
 		if (x.nextClean() != '{') {
 			throw x.syntaxError("A JSONObject text must begin with '{'");
 		}
-		for (;;) {
+		while (true) {
 			c = x.nextClean();
 			switch (c) {
 			case 0:
